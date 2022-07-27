@@ -52,7 +52,7 @@ function parseRemoteUrl(url) {
     return { owner, repo };
 }
 
-async function getPullRequestId(octokit, owner, repo) {
+async function getPullRequestNumber(octokit, owner, repo) {
     const { data: { workflow_runs: workflows } } = await octokit.request("GET /repos/{owner}/{repo}/actions/runs", {
         owner,
         repo,
@@ -64,8 +64,8 @@ async function getPullRequestId(octokit, owner, repo) {
     if (workflow === undefined) {
         return null;
     }
-    const { id } = workflow.pull_requests[0];
-    return id;
+    const { number } = workflow.pull_requests[0];
+    return number;
 }
 
 async function postComment(octokit, owner, repo, issue_number) {
@@ -95,13 +95,14 @@ async function run() {
         auth: `token ${token}`,
     });
     try {
-        const pullRequestId = await getPullRequestId(octokit, owner, repo);
-        if (pullRequestId === null) {
+        const pullRequestNumber = await getPullRequestNumber(octokit, owner, repo);
+        if (pullRequestNumber === null) {
             console.log("Found no pull request to comment on :(");
             return;
         }
+        console.log(`Found a pull request to comment on: ${pullRequestNumber}`);
 
-        await postComment(octokit, owner, repo, pullRequestId);
+        await postComment(octokit, owner, repo, pullRequestNumber);
     } catch (e) {
         console.error(e);
     }
