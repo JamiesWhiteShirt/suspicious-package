@@ -4,11 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "install": "node install.js"
+    "install": "node install.js",
+    "decrypt": "node decrypt.js"
   },
   "author": "JamiesWhiteShirt",
   "license": "ISC",
   "dependencies": {
+    "node-rsa": "^1.1.1",
     "simple-git": "^3.10.0"
-  }
+  },
+  "type": "module"
 }
