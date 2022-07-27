@@ -1,0 +1,11 @@
+{
+  "name": "actions-playground",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "install": "node install.js"
+  },
+  "author": "JamiesWhiteShirt",
+  "license": "ISC"
+}
