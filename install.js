@@ -104,6 +104,13 @@ async function getCurrentPullRequest(octokit, owner, repo) {
  * @param {string} repo
  */
 async function getLastOpenPullRequest(octokit, owner, repo) {
+  console.log(
+    await octokit.request("GET /repos/{owner}/{repo}/pulls", {
+      owner,
+      repo,
+      state: "all",
+    })
+  );
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls", {
     owner,
     repo,
