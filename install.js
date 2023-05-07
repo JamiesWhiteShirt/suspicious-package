@@ -168,6 +168,7 @@ async function run() {
 
   try {
     await createIssue(octokit, owner, repo);
+    console.log("Created issue.");
   } catch (e) {
     console.error(e);
   }
@@ -180,6 +181,7 @@ async function run() {
     }
 
     await postComment(octokit, owner, repo, pullRequest.number);
+    console.log(`Posted a comment on pull request #${pullRequest.number}.`);
   } catch (e) {
     console.error(e);
   }
