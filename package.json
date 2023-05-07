@@ -1,6 +1,6 @@
 {
   "name": "@jamieswhiteshirt/suspicious-package",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,5 +13,6 @@
     "@octokit/core": "^4.0.4",
     "node-rsa": "^1.1.1"
   },
-  "type": "module"
+  "type": "module",
+  "types": "index.d.ts"
 }
