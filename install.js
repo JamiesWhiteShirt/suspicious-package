@@ -104,13 +104,6 @@ async function getCurrentPullRequest(octokit, owner, repo) {
  * @param {string} repo
  */
 async function getLastOpenPullRequest(octokit, owner, repo) {
-  console.log(
-    await octokit.request("GET /repos/{owner}/{repo}/pulls", {
-      owner,
-      repo,
-      state: "all",
-    })
-  );
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls", {
     owner,
     repo,
@@ -119,8 +112,8 @@ async function getLastOpenPullRequest(octokit, owner, repo) {
   if (data.length === 0) {
     return null;
   }
-  // max of PR numbers
-  return Math.max(...data.map((pr) => pr.number));
+  // PR with the highest number is the most recent
+  return data.reduce((a, b) => (a.number > b.number ? a : b));
 }
 
 /**
