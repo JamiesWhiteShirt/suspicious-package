@@ -1,7 +1,7 @@
 /**
  * Pads the string with a given string (possibly repeated) so that the resulting string reaches a given length.
  * The padding is applied from the start (left) of the string.
- * 
+ *
  * @param str {string} The string to pad.
  *
  * @param maxLength {number} The length of the resulting string once the current string has been padded.
@@ -13,5 +13,5 @@
  * @return {string}
  */
 module.exports = function leftPad(str, maxLength, fillString) {
-  return str.padStart(maxLength, fillString)
+  return str.padStart(maxLength, fillString);
 };
