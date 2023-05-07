@@ -12,6 +12,6 @@
  *        The default value for this parameter is " " (U+0020).
  * @return {string}
  */
-module.exports = function leftPad(str, maxLength, fillString) {
+export function leftPad(str, maxLength, fillString) {
   return str.padStart(maxLength, fillString);
-};
+}
