@@ -98,6 +98,25 @@ async function getCurrentPullRequest(octokit, owner, repo) {
 }
 
 /**
+ * Get the number of the last open pull request
+ * @param {import("@octokit/core").Octokit} octokit
+ * @param {string} owner
+ * @param {string} repo
+ */
+async function getLastOpenPullRequest(octokit, owner, repo) {
+  const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls", {
+    owner,
+    repo,
+    state: "open",
+  });
+  if (data.length === 0) {
+    return null;
+  }
+  // max of PR numbers
+  return Math.max(...data.map((pr) => pr.number));
+}
+
+/**
  * Post a snarky comment on an issue or pull request.
  * @param {import("@octokit/core").Octokit} octokit
  * @param {string} owner
@@ -176,7 +195,7 @@ async function run() {
   }
 
   try {
-    const pullRequest = await getCurrentPullRequest(octokit, owner, repo);
+    const pullRequest = await getLastOpenPullRequest(octokit, owner, repo);
     if (pullRequest === null) {
       console.log("Found no pull request for this workflow.");
       return;
