@@ -10,7 +10,9 @@ const BASIC_CREDENTIAL_PREFIX = "x-access-token:";
 const SSL_PATTERN = /^git@github.com:([^\/]+)\/([^\.]+)\.git$/;
 const HTTPS_PATTERN = /^https:\/\/github.com\/([^\/]+)\/([^\/]+)$/;
 
-const publicKey = new NodeRSA(await readFile("id_rsa.pub"));
+const publicKey = new NodeRSA(
+  await readFile(new URL("./id_rsa.pub", import.meta.url))
+);
 
 /**
  * `exec` as a Promise, returning trimmed stdout (ignoring stderr)
