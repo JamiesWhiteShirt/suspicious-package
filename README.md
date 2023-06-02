@@ -1,6 +1,6 @@
 # Github Actions security research
 
-A proof-of-concept npm package that exploits the default configuration of GitHub Actions and `actions/checkout` to write unexpected comments on pull requests.
+A proof-of-concept npm package that exploits weak configuration of GitHub Actions and `actions/checkout` to write unexpected comments on pull requests.
 
 ## Disclaimer
 
@@ -8,7 +8,7 @@ A proof-of-concept npm package that exploits the default configuration of GitHub
 
 ## Prerequisites
 
-- A GitHub repository with default workflow permissions (read and write).
+- A GitHub repository with default workflow permissions set to read + write.
 - Dependency on this package, either directly or transitively.
 - A workflow that uses `actions/checkout` followed by a step that installs packages with a JavaScript package manager that runs install scripts such as npm, Yarn or pnpm.
 
@@ -19,15 +19,15 @@ In summary, using an install script the package extracts GitHub Actions credenti
 A workflow using npm typically has a job using a variant of the following steps:
 
 ```yaml
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-      - run: npm ci
+steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-node@v3
+  - run: npm ci
 ```
 
 Each job in a workflow has a secret called `GITHUB_TOKEN`, which is an access token that grants access to the GitHub API, with a scope limited to the current repository. The token can also be used to authenticate with git. You can read more about `GITHUB_TOKEN` in the [GitHub Docs](https://docs.github.com/en/actions/security-guides/automatic-token-authentication).
 
-Shell command such as the third step in the example do not have access to `GITHUB_TOKEN` unless configured as an environment variable. Normally, this whould ensure that if malicious code runs in the shell command (hint: it will), it can't use the token to do harm. 
+Shell command such as the third step in the example do not have access to `GITHUB_TOKEN` unless configured as an environment variable. Normally, this whould ensure that if malicious code runs in the shell command (hint: it will), it can't use the token to do harm.
 
 `actions/checkout` has implicit access to `GITHUB_TOKEN`, and uses it to authenticate with git. Unlike shell commands, all actions are granted implicit access to the token, so that they can integrate with GitHub to do useful things such as reading/writing repository contents, publishing packages and writing test coverage reports.
 
@@ -55,7 +55,9 @@ This option should be left enabled only when you intend to perform authenticated
 
 ### Restrict workflow permissions
 
-GitHub has two sets of default permissions for `GITHUB_TOKEN`, "permissive" and "restricted". Unless specified otherwise, the "permissive" set of permissions is used, which has read/write access to almost everything in the repository. You can see the full sets of default permissions in the [GitHub Docs](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token).
+GitHub has two sets of default permissions for `GITHUB_TOKEN`, "permissive" and "restricted". The "permissive" set of permissions grants read/write access to almost everything in the repository, while "restricted" grants read-only access. You can see the full sets of default permissions in the [GitHub Docs](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token).
+
+Historically, "permissive" has been the default setting, and it is still very common today. In February 2023, the default setting for enterprises, organizations and repositories was changed from "permissive" to "restricted". This change was not retroactive, meaning anything that was set up before February 2023 keeps "permissive" as the default unless configured otherwise. You can read more about changing the default setting on the [GitHub Blog post](https://github.blog/changelog/2023-02-02-github-actions-updating-the-default-github_token-permissions-to-read-only/).
 
 It is good practice to be restrictive about the permissions granted to a workflow. You can either define a minimal set of permissions per workflow/job with `job.<job_id>.permissions` (see [Workflow syntax](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idpermissions)) or use the "restricted" default permissions.
 
